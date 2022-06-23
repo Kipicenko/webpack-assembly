@@ -41,3 +41,9 @@ or
 ```bash
 yarn run dev || yarn dev
 ```
+
+<h2 align="center">Use of svg</h2>
+
+1) <strong>Import Svg from "arrow.svg"</strong> - ( Imported as a React component )
+2) <strong>Import Svg from "arrow.svg?nc"</strong> - ( Will not be imported as a React component )
+3) <strong>Import Svg from "arrow.svg?url"</strong> - ( url-loader replacement and also won't be a React component )
