@@ -1,31 +1,38 @@
-const webpack = require('webpack')
+const { ProvidePlugin, IgnorePlugin } = require('webpack');
 const path = require('path')
 const Dotenv = require('dotenv-webpack');
 const CaseSensitivePathsPlugin = require('case-sensitive-paths-webpack-plugin');
 const ImageMinimizerPlugin = require("image-minimizer-webpack-plugin");
-require("dotenv").config();
 const HTMLWebpackPlugin = require('html-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-// const CopyWebpackPlugin = require('copy-webpack-plugin')
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
+const { ESBuildMinifyPlugin } = require('esbuild-loader')
 
 
 const isProd = process.env.NODE_ENV === 'production'
+const isEsbuild = process.env.ESBUILD_ENV
 
-const filename = (ext) => isProd ? `[name].[contenthash]${ext}` : `[name]${ext}`
+const filename = (ext) => isProd ? `[name].[contenthash:12]${ext}` : `[name]${ext}`
 
-module.exports = {
-    context: path.resolve(__dirname, 'src'),
+const config = {
+    // context: path.resolve(__dirname, 'src'),
     mode: process.env.NODE_ENV,
     entry: {
-        bundle: './index.js'
+        bundle: path.resolve(__dirname, 'src/index.js')
     },
     output: {
         path: path.resolve(__dirname, 'build'),
-        filename: `static/js/${isProd ? '[name].[contenthash].js' : '[name].js'}`,
+        filename: `static/js/${isProd ? '[name].[contenthash:12].js' : '[name].js'}`,
         assetModuleFilename: `static/images/${filename('[ext]')}`,
         clean: true,
-        publicPath: '',
+        publicPath: '/',
+    },
+    resolve: {
+        extensions: ["*", ".js", ".jsx"],
+        alias: {
+            src: path.resolve(__dirname, 'src'),
+            // добавить дополнительные alias по мере удобства для конкретного проекта
+        }
     },
     devServer: {
         historyApiFallback: true,
@@ -40,8 +47,6 @@ module.exports = {
     devtool: isProd ? false : 'source-map',
     optimization: {
         minimizer: [
-            new CssMinimizerPlugin(),
-            '...',
             // раскомментировать, если нужна оптимизация изображений без потери качества,
             // Но я предпочитаю сжимать сам, т.к сжимается гораздо лучше, чем через ImageMinimizerPlugin
             // new ImageMinimizerPlugin({
@@ -56,7 +61,22 @@ module.exports = {
             //         }
             //     }
             // })
-        ],
+        ].concat(isEsbuild ? (
+            [
+                new ESBuildMinifyPlugin({
+                    legalComments: 'none',
+                    minifyIdentifiers: true,
+                    minifySyntax: true,
+                    minifyWhitespace: true,
+                    css: true,
+                })
+            ]
+        ) : (
+            [
+                new CssMinimizerPlugin(),
+                '...',
+            ]
+        ))
     },
     plugins: [
         new HTMLWebpackPlugin({
@@ -80,22 +100,17 @@ module.exports = {
             ) : false
         }),
         new MiniCssExtractPlugin({
-            filename: 'static/css/style.css'
+            filename: 'static/css/[name].[contenthash:12].css'
         }),
         new Dotenv(),
         new CaseSensitivePathsPlugin(),
-        new webpack.IgnorePlugin({
+        new IgnorePlugin({
             resourceRegExp: /^\.\/locale$/,
             contextRegExp: /moment$/,
         }),
-        // new CopyWebpackPlugin({
-        //     patterns: [
-        //         {
-        //             from: path.resolve(__dirname, 'src/assets'),
-        //             to: path.resolve(__dirname, 'build/assets')
-        //         }
-        //     ]
-        // })
+        new ProvidePlugin({
+            React: 'react',
+        })
     ],
     module: {
         rules: [
@@ -108,27 +123,27 @@ module.exports = {
             },
             {
                 test: /\.css$/i,
-                use: [MiniCssExtractPlugin.loader, "css-loader"],
+                use: [
+                    isProd ? MiniCssExtractPlugin.loader : "style-loader",
+                    "css-loader",
+                    // "postcss-loader"
+                ],
             },
             {
                 test: /\.s[ac]ss$/i,
                 use: [
-                    {
-                        loader: MiniCssExtractPlugin.loader,
-                        options: {
-                            publicPath: (resourcePath, context) => {
-                                return '../' + path.relative(path.dirname(resourcePath), context) + '/';
-                            },
-                        }
-                    },
+                    isProd ?
+                        {
+                            loader: MiniCssExtractPlugin.loader,
+                            options: {
+                                publicPath: '/'
+                            }
+                        } : "style-loader",
                     "css-loader",
+                    // "postcss-loader",
+                    // Compiles Sass to CSS
                     "sass-loader"
                 ],
-            },
-            {
-                test: /\.(js|jsx)$/,
-                exclude: /node_modules/,
-                use: ['babel-loader'],
             },
             {
                 test: /\.(?:|gif|png|jpg|jpeg|webp)$/,
@@ -141,13 +156,13 @@ module.exports = {
             },
             {
                 test: /\.svg$/i,
-                type: 'asset',
+                type: 'asset/inline',
                 resourceQuery: /url/, // *.svg?url - замена url-loader
             },
             {
                 test: /\.svg$/,
                 issuer: /\.[jt]sx?$/,
-                resourceQuery: { not: [/url/, /nc/] },
+                resourceQuery: {not: [/url/, /nc/]},
                 use: ['@svgr/webpack']
             },
             {
@@ -158,12 +173,34 @@ module.exports = {
                 }
             },
             {
-                test: /\.(ttf|eot|woff|woff2)$/,
+                test: /\.(ttf|eot|woff|woff2)$/i,
                 type: 'asset/resource',
                 generator: {
                     filename: `static/fonts/${filename('[ext]')}`
                 }
-            }
-        ]
+            },
+        ].concat(isEsbuild ? (
+            [
+                {
+                    test: /\.(js|jsx)?$/,
+                    loader: 'esbuild-loader',
+                    exclude: /node_modules/,
+                    options: {
+                        loader: 'jsx',
+                        target: 'es2015'
+                    }
+                },
+            ]
+        ) : (
+            [
+                {
+                    test: /\.(js|jsx)$/,
+                    exclude: /node_modules/,
+                    use: ['babel-loader'],
+                },
+            ]
+        ))
     }
 }
+
+module.exports = config

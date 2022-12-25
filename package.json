@@ -1,6 +1,6 @@
 {
   "name": "webpack-assembly",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "my webpack bundler",
   "keywords": [
     "webpack",
@@ -11,7 +11,11 @@
     "url": "git+https://github.com/Kipicenko/webpack-assembly.git"
   },
   "scripts": {
-    "build": "cross-env NODE_ENV=production webpack --mode production",
+    "build:css": "postcss build/static/css/*.css --dir build/static/css",
+    "build:esbuild": "cross-env NODE_ENV=production ESBUILD_ENV=true webpack --mode production && npm run build:css",
+    "dev:esbuild": "cross-env NODE_ENV=development ESBUILD_ENV=true webpack --mode development",
+    "start:esbuild": "cross-env NODE_ENV=development ESBUILD_ENV=true webpack serve --mode development",
+    "build": "cross-env NODE_ENV=production webpack --mode production && npm run build:css",
     "dev": "cross-env NODE_ENV=development webpack --mode development",
     "start": "cross-env NODE_ENV=development webpack serve --mode development"
   },
@@ -24,12 +28,12 @@
     "@svgr/webpack": "^6.2.1",
     "babel-loader": "^8.2.5",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
-    "copy-webpack-plugin": "^11.0.0",
     "cross-env": "^7.0.3",
     "css-loader": "^6.7.1",
     "css-minimizer-webpack-plugin": "^4.0.0",
     "dotenv": "^16.0.1",
     "dotenv-webpack": "^7.1.0",
+    "esbuild-loader": "^2.20.0",
     "html-loader": "^3.1.0",
     "html-webpack-plugin": "^5.5.0",
     "image-minimizer-webpack-plugin": "^3.2.3",
@@ -38,9 +42,13 @@
     "imagemin-jpegtran": "^7.0.0",
     "imagemin-optipng": "^8.0.0",
     "mini-css-extract-plugin": "^2.6.0",
+    "postcss-cli": "^10.1.0",
+    "postcss-loader": "^7.0.2",
+    "postcss-sort-media-queries": "^4.3.0",
     "react-dev-utils": "^12.0.1",
     "sass": "^1.52.3",
     "sass-loader": "^13.0.0",
+    "style-loader": "^3.3.1",
     "webpack": "^5.73.0",
     "webpack-cli": "^4.9.2",
     "webpack-dev-server": "^4.9.2"
